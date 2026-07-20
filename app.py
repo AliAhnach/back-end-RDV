@@ -5,17 +5,6 @@ from config import Config
 from models import db
 from routes import api
 
-# --- DEBUG TEMPORAIRE ---
-_raw = os.environ.get("DATABASE_URL")
-print("[DEBUG] DATABASE_URL brute :", _raw)
-print("[DEBUG] URI finale         :", Config.SQLALCHEMY_DATABASE_URI)
-# --- FIN DEBUG ---
-
-
-class Config:
-    SQLALCHEMY_DATABASE_URI = ...
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-
 app = Flask(__name__)
 app.config.from_object(Config)
 
@@ -27,5 +16,9 @@ app.register_blueprint(api, url_prefix="/api")
 with app.app_context():
     db.create_all()
 
+@app.route("/")
+def home():
+    return {"status": "ok", "message": "Backend running"}
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
