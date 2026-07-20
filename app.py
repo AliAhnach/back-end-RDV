@@ -7,18 +7,25 @@ from routes import api
 
 app = Flask(__name__)
 app.config.from_object(Config)
+app.register_blueprint(api, url_prefix="/api")
 
-CORS(app, origins=["https://rdvaliahnach.netlify.app"])
+CORS(app)
 
 db.init_app(app)
-app.register_blueprint(api, url_prefix="/api")
+
+@app.route("/")
+def home():
+    return {
+        "status": "ok",
+        "message": "Backend fonctionne avec MySQL"
+    }
 
 with app.app_context():
     db.create_all()
 
-@app.route("/")
-def home():
-    return {"status": "ok", "message": "Backend running"}
-
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(
+        host="127.0.0.1",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    )
