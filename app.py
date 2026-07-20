@@ -11,6 +11,11 @@ print("[DEBUG] DATABASE_URL brute :", _raw)
 print("[DEBUG] URI finale         :", Config.SQLALCHEMY_DATABASE_URI)
 # --- FIN DEBUG ---
 
+
+class Config:
+    SQLALCHEMY_DATABASE_URI = ...
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
