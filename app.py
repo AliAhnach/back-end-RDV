@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from flask import Flask, jsonify
 from flask_cors import CORS
 from config import Config
@@ -7,21 +9,25 @@ from routes import api
 
 app = Flask(__name__)
 app.config.from_object(Config)
-app.register_blueprint(api, url_prefix="/api")
 
-CORS(app)
+allowed_origins = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500"
+).split(",")
+
+CORS(app, origins=[o.strip() for o in allowed_origins])
 
 db.init_app(app)
-
-@app.route("/")
-def home():
-    return jsonify({
-        "status": "ok",
-        "message": "Backend fonctionne avec MySQL"
-    })
+app.register_blueprint(api, url_prefix="/api")
 
 with app.app_context():
     db.create_all()
+
+
+@app.route("/")
+def home():
+    return jsonify({"status": "ok", "message": "Backend fonctionne avec MySQL"})
+
 
 if __name__ == "__main__":
     app.run(
