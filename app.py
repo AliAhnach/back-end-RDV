@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from config import Config
 from models import db
@@ -15,10 +15,10 @@ db.init_app(app)
 
 @app.route("/")
 def home():
-    return {
+    return jsonify({
         "status": "ok",
         "message": "Backend fonctionne avec MySQL"
-    }
+    })
 
 with app.app_context():
     db.create_all()
