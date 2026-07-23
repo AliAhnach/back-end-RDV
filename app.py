@@ -2,34 +2,39 @@ import os
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=False)  # silencieux si .env absent (production)
 from flask import Flask, jsonify
 from flask_cors import CORS
 from config import Config
 from models import db
 from routes import api
 
-app = Flask(__name__)
-app.config.from_object(Config)
 
-allowed_origins = os.environ.get(
-    "CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500"
-).split(",")
+def create_app(config_object=Config):
+    app = Flask(__name__)
+    app.config.from_object(config_object)
 
-CORS(app, origins=[o.strip() for o in allowed_origins])
+    allowed_origins = os.environ.get(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500"
+    ).split(",")
+    CORS(app, origins=[o.strip() for o in allowed_origins])
 
-db.init_app(app)
-app.register_blueprint(api, url_prefix="/api")
+    db.init_app(app)
+    app.register_blueprint(api, url_prefix="/api")
 
-with app.app_context():
-    db.create_all()
+    with app.app_context():
+        db.create_all()
+
+    @app.route("/")
+    def home():
+        return jsonify({"status": "ok", "message": "Backend fonctionne avec MySQL"})
+
+    return app
 
 
-@app.route("/")
-def home():
-    return jsonify({"status": "ok", "message": "Backend fonctionne avec MySQL"})
-
+# Point d'entrée direct (dev local) et compatibilité WSGI module-level
+app = create_app()
 
 if __name__ == "__main__":
     app.run(
