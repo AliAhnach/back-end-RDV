@@ -1,37 +1,32 @@
 """
-Fichier WSGI pour PythonAnywhere.
+Fichier WSGI pour PythonAnywhere (SQLite).
 
-Instructions de déploiement :
-1. Dans le dashboard PythonAnywhere → Web → WSGI configuration file
+Instructions :
+1. Dashboard PythonAnywhere → Web → WSGI configuration file
 2. Remplacer le contenu par ce fichier
-3. Adapter CHEMIN_PROJET avec votre nom d'utilisateur PythonAnywhere
-   Exemple : /home/votre_username/backend
+3. Adapter "votre_username" avec votre nom d'utilisateur PythonAnywhere
 """
 
 import sys
 import os
 
-# --- Chemin vers le projet ---
-# Remplacer "votre_username" par votre nom d'utilisateur PythonAnywhere
+# Chemin vers le projet — adapter avec votre nom d'utilisateur
 CHEMIN_PROJET = "/home/votre_username/backend"
 
 if CHEMIN_PROJET not in sys.path:
     sys.path.insert(0, CHEMIN_PROJET)
 
-# --- Variables d'environnement ---
-# Définir ici toutes les variables nécessaires
-# (ou les configurer dans l'onglet "Web" > "Environment variables" de PythonAnywhere)
+# Variables d'environnement
 os.environ.setdefault("SECRET_KEY", "changez-cette-valeur-en-production")
 os.environ.setdefault("CORS_ORIGINS", "https://rdvaliahnach.netlify.app")
 
-# Base de données MySQL PythonAnywhere
-# Format : mysql+pymysql://username:password@username.mysql.pythonanywhere-services.com/username$dbname
+# SQLite : chemin absolu vers le fichier de base de données
+# PythonAnywhere : utiliser un chemin dans le home directory
 os.environ.setdefault(
-    "DATABASE_URL",
-    "mysql+pymysql://votre_username:votre_password@votre_username.mysql.pythonanywhere-services.com/votre_username$rdv_db"
+    "SQLITE_PATH",
+    "/home/votre_username/backend/rdv.db"
 )
 
-# --- Import de l'application ---
 from app import create_app
 
 application = create_app()
