@@ -11,7 +11,7 @@ import sys
 import os
 
 # Chemin vers le projet — adapter avec votre nom d'utilisateur
-CHEMIN_PROJET = "/home/votre_username/backend"
+CHEMIN_PROJET = "/home/ali/backend"
 
 if CHEMIN_PROJET not in sys.path:
     sys.path.insert(0, CHEMIN_PROJET)
@@ -24,7 +24,7 @@ os.environ.setdefault("CORS_ORIGINS", "https://rdvaliahnach.netlify.app")
 # PythonAnywhere : utiliser un chemin dans le home directory
 os.environ.setdefault(
     "SQLITE_PATH",
-    "/home/votre_username/backend/rdv.db"
+    "/home/ali/backend/rdv.db"
 )
 
 from app import create_app
