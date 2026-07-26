@@ -1,3 +1,6 @@
+import logging
+log = logging.getLogger(__name__)
+
 from flask import Blueprint, request, jsonify, session
 from functools import wraps
 from sqlalchemy import and_, case, func, or_
@@ -123,7 +126,6 @@ def register():
         email=email,
         password=generate_password_hash(password),
         role="user",
-        profile_image=None,
     )
     db.session.add(new_user)
     db.session.commit()
@@ -251,7 +253,8 @@ def create_appointment():
 @api.route("/appointments", methods=["GET"])
 def get_current_user_appointments():
     """Rendez-vous de l'utilisateur connecté (session ou ?user_id=)."""
-    user = _resolve_user(request.args.get("user_id"))
+    user_id_param = request.args.get("user_id")
+    user = _resolve_user(user_id_param)
     if not user:
         return jsonify({"success": False, "message": "Authentication required."}), 401
 
@@ -292,7 +295,10 @@ def get_admin_appointments():
     appointments = Appointment.query.options(
         joinedload(Appointment.user)
     ).order_by(Appointment.id).all()
-    return appointments_response(appointments)
+    log.info("[admin/appointments] %d rendez-vous trouvés", len(appointments))
+    result = appointments_response(appointments)
+    log.info("[admin/appointments] JSON retourné : %s", str(result[0].get_data(as_text=True))[:300])
+    return result
 
 
 @api.route("/admin/appointments/<int:appointment_id>/status", methods=["PUT"])
@@ -350,6 +356,9 @@ def get_dashboard_stats():
         recent = Appointment.query.options(joinedload(Appointment.user)).order_by(
             Appointment.created_at.desc(), Appointment.id.desc()
         ).limit(5).all()
+
+        log.info("[dashboard/stats] appointments=%s users=%s recent_count=%s",
+                 int(counts.appointments or 0), User.query.count(), len(recent))
 
         return jsonify({
             "success": True,
