@@ -16,16 +16,10 @@ CHEMIN_PROJET = "/home/ali/backend"
 if CHEMIN_PROJET not in sys.path:
     sys.path.insert(0, CHEMIN_PROJET)
 
-# Variables d'environnement
-os.environ.setdefault("SECRET_KEY", "changez-cette-valeur-en-production")
-os.environ.setdefault("CORS_ORIGINS", "https://rdvaliahnach.netlify.app")
-
-# SQLite : chemin absolu vers le fichier de base de données
-# PythonAnywhere : utiliser un chemin dans le home directory
-os.environ.setdefault(
-    "SQLITE_PATH",
-    "/home/ali/backend/rdv.db"
-)
+# Variables d'environnement — os.environ[] écrase toujours la valeur existante
+os.environ["SECRET_KEY"]   = os.environ.get("SECRET_KEY", "changez-cette-valeur-en-production")
+os.environ["CORS_ORIGINS"] = os.environ.get("CORS_ORIGINS", "https://rdvaliahnach.netlify.app")
+os.environ["SQLITE_PATH"]  = os.environ.get("SQLITE_PATH", "/home/ali/backend/rdv.db")
 
 from app import create_app
 

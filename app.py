@@ -1,6 +1,7 @@
 import os
 import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+log = logging.getLogger(__name__)
 from dotenv import load_dotenv
 load_dotenv(override=False)
 from flask import Flask, jsonify
@@ -40,11 +41,17 @@ def create_app(config_object=Config):
     app = Flask(__name__)
     app.config.from_object(config_object)
 
-    allowed_origins = os.environ.get(
+    raw_origins = os.environ.get(
         "CORS_ORIGINS",
         "http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500"
-    ).split(",")
-    CORS(app, origins=[o.strip() for o in allowed_origins])
+    )
+    allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+    log.info("[CORS] Origines autorisées : %s", allowed_origins)
+    CORS(app,
+         origins=allowed_origins,
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         allow_headers=["Content-Type", "Authorization"],
+         supports_credentials=True)
 
     db.init_app(app)
     app.register_blueprint(api, url_prefix="/api")
