@@ -74,7 +74,6 @@ def serialize_user(user):
         "fullname": user.fullname,
         "email": user.email,
         "role": user.role,
-        "profile_image": user.profile_image,
     }
 
 
@@ -176,32 +175,6 @@ def get_profile():
     user = _resolve_user(request.args.get("user_id"))
     if not user:
         return jsonify({"success": False, "message": "Authentication required."}), 401
-    return jsonify({"success": True, "user": serialize_user(user)}), 200
-
-
-@api.route("/profile", methods=["PUT"])
-@login_required
-def update_profile():
-    data = get_json_data()
-    if data is None or set(data) != {"profile_image"}:
-        return jsonify({"success": False, "message": "Seul le champ 'profile_image' peut être modifié."}), 400
-
-    profile_image = data["profile_image"]
-    if profile_image is not None:
-        if not isinstance(profile_image, str):
-            return jsonify({"success": False, "message": "L'image de profil est invalide."}), 400
-        profile_image = profile_image.strip() or None
-        if profile_image and len(profile_image) > 500:
-            return jsonify({"success": False, "message": "L'image de profil est trop longue."}), 400
-
-    user = get_current_user()
-    try:
-        user.profile_image = profile_image
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        return jsonify({"success": False, "message": "Erreur lors de la mise à jour du profil."}), 500
-
     return jsonify({"success": True, "user": serialize_user(user)}), 200
 
 
