@@ -296,9 +296,7 @@ def get_admin_appointments():
         joinedload(Appointment.user)
     ).order_by(Appointment.id).all()
     log.info("[admin/appointments] %d rendez-vous trouvés", len(appointments))
-    result = appointments_response(appointments)
-    log.info("[admin/appointments] JSON retourné : %s", str(result[0].get_data(as_text=True))[:300])
-    return result
+    return appointments_response(appointments)
 
 
 @api.route("/admin/appointments/<int:appointment_id>/status", methods=["PUT"])

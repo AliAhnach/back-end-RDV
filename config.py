@@ -30,3 +30,9 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-secret-key-change-in-production"
     SQLALCHEMY_DATABASE_URI = _build_db_uri()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Cookies de session : SameSite=None + Secure requis pour le cross-origin
+    # (frontend Netlify <-> backend PythonAnywhere)
+    SESSION_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE   = os.environ.get("FLASK_DEBUG", "false").lower() != "true"
+    SESSION_COOKIE_HTTPONLY = True
