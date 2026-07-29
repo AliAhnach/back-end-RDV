@@ -41,11 +41,31 @@ def create_app(config_object=Config):
     app = Flask(__name__)
     app.config.from_object(config_object)
 
+    # Configuration des cookies de session pour le développement cross-origin (local)
+    # et la production (HTTPS). Le navigateur n'enverra pas le cookie
+    # de session sans ces paramètres stricts.
+    app.config.update(
+        SESSION_COOKIE_SAMESITE='None',
+        SESSION_COOKIE_SECURE=True
+    )
+
+    # Récupère les origines de production depuis la variable d'environnement
     raw_origins = os.environ.get(
         "CORS_ORIGINS",
-        "http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500"
+        "https://rdvaliahnach.netlify.app"
     )
     allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+
+    # En mode debug local, ajoute automatiquement les origines de développement courantes
+    is_debug = str(os.environ.get("FLASK_DEBUG", "false")).lower() == "true"
+    if is_debug:
+        local_dev_origins = [
+            "http://localhost:5500", "http://127.0.0.1:5500",
+            "http://localhost:8080", "http://127.0.0.1:8080",
+            "http://localhost:3000", "http://127.0.0.1:3000",
+        ]
+        allowed_origins.extend([o for o in local_dev_origins if o not in allowed_origins])
+
     log.info("[CORS] Origines autorisées : %s", allowed_origins)
     CORS(app,
          origins=allowed_origins,
@@ -63,6 +83,10 @@ def create_app(config_object=Config):
     @app.route("/")
     def home():
         return jsonify({"status": "ok", "message": "Backend opérationnel"})
+
+    @app.route("/health")
+    def health():
+        return jsonify({"status": "ok", "message": "Health check OK"})
 
     return app
 

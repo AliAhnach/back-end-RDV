@@ -1,11 +1,18 @@
 import logging
 log = logging.getLogger(__name__)
 
-from flask import Blueprint, request, jsonify, session
+from io import BytesIO
+from flask import Blueprint, request, jsonify, session, make_response
 from functools import wraps
 from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash, check_password_hash
+from reportlab.graphics import renderPDF
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 from models import db, User, Appointment, Conversation, Message
 from datetime import date, datetime
 
@@ -100,9 +107,197 @@ def appointments_response(appointments):
     }), 200
 
 
+def _generate_appointment_receipt_pdf(appointment, admin_name):
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    margin = 34
+    header_color = colors.HexColor('#1f5fbf')
+    accent_blue = colors.HexColor('#2f6ce4')
+    text_dark = colors.HexColor('#11254a')
+    text_gray = colors.HexColor('#58607c')
+    card_bg = colors.HexColor('#f4f7fb')
+    section_line = colors.HexColor('#d9e2ef')
+    success = colors.HexColor('#22a55f')
+    warning = colors.HexColor('#f59e0b')
+    danger = colors.HexColor('#dc2626')
+
+    receipt_number = f"RDV-{appointment.id}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    generated_at = datetime.utcnow().strftime('%d/%m/%Y %H:%M')
+    appointment_date = appointment.appointment_date.strftime('%d/%m/%Y') if appointment.appointment_date else '—'
+    appointment_time = appointment.appointment_time.strftime('%H:%M') if appointment.appointment_time else '—'
+    confirmation_date = appointment.created_at.strftime('%d/%m/%Y') if appointment.created_at else '—'
+    user_name = appointment.user.fullname if appointment.user else 'Utilisateur'
+    user_email = appointment.user.email if appointment.user else '—'
+    appointment_type = appointment.service or '—'
+    appointment_status = appointment.status or '—'
+
+    status_color = {
+        'Confirmé': success,
+        'En attente': warning,
+        'Refusé': danger,
+    }.get(appointment_status, accent_blue)
+
+    # Subtle watermark
+    c.saveState()
+    c.setFillColor(colors.HexColor('#eaf0fb'))
+    c.setFont('Helvetica-Bold', 64)
+    c.translate(width * 0.1, height * 0.55)
+    c.rotate(45)
+    c.drawCentredString(width * 0.3, 0, 'RDV PLATFORM')
+    c.restoreState()
+
+    # Header
+    header_height = 140
+    c.setFillColor(header_color)
+    c.roundRect(margin, height - margin - header_height, width - 2 * margin, header_height, 16, stroke=0, fill=1)
+
+    # Logo badge
+    logo_size = 52
+    c.setFillColor(colors.white)
+    c.roundRect(margin + 20, height - margin - 20 - logo_size, logo_size, logo_size, 14, stroke=0, fill=1)
+    c.setFillColor(header_color)
+    c.setFont('Helvetica-Bold', 20)
+    c.drawCentredString(margin + 20 + logo_size / 2, height - margin - 20 - logo_size / 2 + 2, 'RDV')
+
+    # Header text
+    c.setFillColor(colors.white)
+    c.setFont('Helvetica-Bold', 24)
+    c.drawString(margin + 20 + logo_size + 16, height - margin - 40, 'Appointment Receipt')
+    c.setFont('Helvetica', 10)
+    c.drawString(margin + 20 + logo_size + 16, height - margin - 62, 'Official appointment confirmation from RDV Platform.')
+
+    # Receipt metadata box
+    meta_x = width - margin - 190
+    meta_y = height - margin - 32
+    c.setFont('Helvetica-Bold', 10)
+    c.drawRightString(width - margin - 12, meta_y, f'Receipt No. {receipt_number}')
+    c.setFont('Helvetica', 9)
+    c.drawRightString(width - margin - 12, meta_y - 18, f'Generated on {generated_at}')
+
+    # Status badge
+    badge_width = 120
+    badge_height = 28
+    badge_x = width - margin - badge_width - 12
+    badge_y = height - margin - header_height + 22
+    c.setFillColor(status_color)
+    c.roundRect(badge_x, badge_y, badge_width, badge_height, badge_height / 2, stroke=0, fill=1)
+    c.setFillColor(colors.white)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawCentredString(badge_x + badge_width / 2, badge_y + 8, appointment_status.upper())
+
+    # Section helper
+    def draw_section(title, y_top, icon_marker):
+        section_height = 110
+        c.setFillColor(card_bg)
+        c.roundRect(margin, y_top - section_height, width - 2 * margin, section_height, 14, stroke=0, fill=1)
+        c.setFillColor(text_dark)
+        c.setFont('Helvetica-Bold', 12)
+        c.drawString(margin + 18, y_top - 22, title)
+        # icon marker
+        c.setFillColor(accent_blue)
+        c.circle(margin + 12, y_top - 20, 4, fill=1, stroke=0)
+        c.setStrokeColor(section_line)
+        c.setLineWidth(0.8)
+        c.line(margin + 18, y_top - 28, width - margin - 18, y_top - 28)
+        return y_top - section_height
+
+    content_top = height - margin - header_height - 20
+    content_top = draw_section('Patient Information', content_top, 'person')
+    c.setFont('Helvetica', 10)
+    c.setFillColor(text_gray)
+    c.drawString(margin + 20, content_top + 76, 'Full Name')
+    c.setFillColor(text_dark)
+    c.drawString(margin + 20, content_top + 60, user_name)
+    c.setFillColor(text_gray)
+    c.drawString(margin + 20, content_top + 42, 'Email')
+    c.setFillColor(text_dark)
+    c.drawString(margin + 20, content_top + 26, user_email)
+
+    content_top = draw_section('Appointment Information', content_top - 16, 'calendar')
+    c.setFont('Helvetica', 10)
+    c.setFillColor(text_gray)
+    left_x = margin + 20
+    right_x = width / 2 + 10
+    c.drawString(left_x, content_top + 76, 'Appointment ID')
+    c.setFillColor(text_dark)
+    c.drawString(left_x, content_top + 60, str(appointment.id))
+    c.setFillColor(text_gray)
+    c.drawString(left_x, content_top + 42, 'Appointment Type')
+    c.setFillColor(text_dark)
+    c.drawString(left_x, content_top + 26, appointment_type)
+    c.setFillColor(text_gray)
+    c.drawString(right_x, content_top + 76, 'Date')
+    c.setFillColor(text_dark)
+    c.drawString(right_x, content_top + 60, appointment_date)
+    c.setFillColor(text_gray)
+    c.drawString(right_x, content_top + 42, 'Time')
+    c.setFillColor(text_dark)
+    c.drawString(right_x, content_top + 26, appointment_time)
+
+    content_top = draw_section('Confirmation Information', content_top - 16, 'check')
+    c.setFont('Helvetica', 10)
+    c.setFillColor(text_gray)
+    c.drawString(margin + 20, content_top + 76, 'Confirmation Date')
+    c.setFillColor(text_dark)
+    c.drawString(margin + 20, content_top + 60, confirmation_date)
+    c.setFillColor(text_gray)
+    c.drawString(margin + 20, content_top + 42, 'Administrator')
+    c.setFillColor(text_dark)
+    c.drawString(margin + 20, content_top + 26, admin_name)
+
+    content_top = draw_section('Receipt Information', content_top - 16, 'receipt')
+    c.setFont('Helvetica', 10)
+    c.setFillColor(text_gray)
+    c.drawString(margin + 20, content_top + 76, 'Receipt Number')
+    c.setFillColor(text_dark)
+    c.drawString(margin + 20, content_top + 60, receipt_number)
+    c.setFillColor(text_gray)
+    c.drawString(margin + 20, content_top + 42, 'Generated On')
+    c.setFillColor(text_dark)
+    c.drawString(margin + 20, content_top + 26, generated_at)
+
+    # QR code box
+    qr_value = receipt_number
+    qr_code = qr.QrCodeWidget(qr_value)
+    qr_size = 68
+    bounds = qr_code.getBounds()
+    drawing = Drawing(qr_size, qr_size, transform=[qr_size / (bounds[2] - bounds[0]), 0, 0, qr_size / (bounds[3] - bounds[1]), 0, 0])
+    drawing.add(qr_code)
+    qr_x = width - margin - qr_size - 20
+    qr_y = content_top + 20
+    renderPDF.draw(drawing, c, qr_x, qr_y)
+    c.setFont('Helvetica', 8)
+    c.setFillColor(text_gray)
+    c.drawRightString(qr_x + qr_size, qr_y - 8, 'Receipt QR code')
+
+    # Footer
+    footer_y = margin + 14
+    c.setStrokeColor(section_line)
+    c.setLineWidth(0.8)
+    c.line(margin, footer_y + 42, width - margin, footer_y + 42)
+    c.setFont('Helvetica-Bold', 10)
+    c.setFillColor(text_dark)
+    c.drawString(margin + 2, footer_y + 28, 'Thank you for using RDV Platform.')
+    c.setFont('Helvetica', 8)
+    c.setFillColor(text_gray)
+    c.drawString(margin + 2, footer_y + 14, 'This receipt was generated automatically.')
+    c.setFont('Helvetica-Oblique', 8)
+    c.drawRightString(width - margin - 2, footer_y + 14, 'This document serves as proof of appointment confirmation.')
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+
 # ---------------------------------------------------------------------------
 # Auth
 # ---------------------------------------------------------------------------
+
+@api.route("/health", methods=["GET"])
+def api_health():
+    return jsonify({"success": True, "message": "API health OK"}), 200
+
 
 @api.route("/register", methods=["POST"])
 def register():
@@ -221,6 +416,36 @@ def create_appointment():
     except Exception:
         db.session.rollback()
         return jsonify({"success": False, "message": "Erreur lors de la création du rendez-vous."}), 500
+
+
+@api.route("/appointments/<int:appointment_id>/receipt", methods=["GET"])
+def download_appointment_receipt(appointment_id):
+    user = _resolve_user(request.args.get("user_id"))
+    if not user:
+        return jsonify({"success": False, "message": "Authentication required."}), 401
+
+    appointment = db.session.get(Appointment, appointment_id)
+    if not appointment:
+        return jsonify({"success": False, "message": "Rendez-vous introuvable."}), 404
+
+    if user.role != "admin" and appointment.user_id != user.id:
+        return jsonify({"success": False, "message": "Accès non autorisé."}), 403
+
+    if appointment.status != "Confirmé":
+        return jsonify({"success": False, "message": "Le reçu n'est disponible que pour les rendez-vous confirmés."}), 400
+
+    admin = User.query.filter_by(role="admin").first()
+    admin_name = admin.fullname if admin else "Administrateur"
+
+    try:
+        pdf_buffer = _generate_appointment_receipt_pdf(appointment, admin_name)
+        response = make_response(pdf_buffer.getvalue())
+        response.headers.set('Content-Type', 'application/pdf')
+        response.headers.set('Content-Disposition', f'attachment; filename=receipt-{appointment_id}.pdf')
+        return response
+    except Exception as e:
+        log.exception("Error generating receipt PDF for appointment %s", appointment_id)
+        return jsonify({"success": False, "message": "Erreur lors de la génération du reçu."}), 500
 
 
 @api.route("/appointments", methods=["GET"])
@@ -536,3 +761,47 @@ def mark_message_read(conversation_id):
         return jsonify({"success": False, "message": "Erreur lors de la mise à jour."}), 500
 
     return jsonify({"success": True}), 200
+
+
+@api.route("/messages/<int:message_id>", methods=["DELETE"])
+@admin_required
+def delete_message(message_id):
+    """Supprime un message spécifique. Accessible uniquement par les administrateurs."""
+    log.info("[DELETE /messages/%d] Tentative de suppression par l'admin.", message_id)
+
+    message = db.session.get(Message, message_id)
+    if not message:
+        log.warning("[DELETE /messages/%d] Message introuvable.", message_id)
+        return jsonify({"success": False, "message": "Message introuvable."}), 404
+
+    try:
+        db.session.delete(message)
+        db.session.commit()
+        log.info("[DELETE /messages/%d] Message supprimé avec succès.", message_id)
+        return jsonify({"success": True, "message": "Message supprimé avec succès."}), 200
+    except Exception as e:
+        db.session.rollback()
+        log.error("[DELETE /messages/%d] Erreur serveur lors de la suppression : %s", message_id, e)
+        return jsonify({"success": False, "message": "Erreur interne du serveur lors de la suppression."}), 500
+
+
+@api.route("/messages/conversation/<int:conversation_id>", methods=["DELETE"])
+@admin_required
+def delete_conversation(conversation_id):
+    """Supprime une conversation et tous ses messages. Accessible uniquement par les administrateurs."""
+    log.info("[DELETE /messages/conversation/%d] Tentative de suppression par l'admin.", conversation_id)
+
+    conversation = db.session.get(Conversation, conversation_id)
+    if not conversation:
+        log.warning("[DELETE /messages/conversation/%d] Conversation introuvable.", conversation_id)
+        return jsonify({"success": False, "message": "Conversation introuvable."}), 404
+
+    try:
+        db.session.delete(conversation)
+        db.session.commit()
+        log.info("[DELETE /messages/conversation/%d] Conversation supprimée avec succès.", conversation_id)
+        return jsonify({"success": True, "message": "Conversation supprimée avec succès."}), 200
+    except Exception as e:
+        db.session.rollback()
+        log.error("[DELETE /messages/conversation/%d] Erreur serveur lors de la suppression : %s", conversation_id, e)
+        return jsonify({"success": False, "message": "Erreur interne du serveur lors de la suppression."}), 500

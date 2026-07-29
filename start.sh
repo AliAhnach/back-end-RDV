@@ -13,8 +13,8 @@ if [ ! -d ".venv" ]; then
   echo "✅ Dépendances installées"
 fi
 
-echo "🚀 Backend Flask → http://127.0.0.1:5000"
-echo "   CORS autorisé pour : localhost:5500, localhost:5501, localhost:3000"
+echo "🚀 Backend Flask prêt"
+echo "   CORS de production : https://rdvaliahnach.netlify.app"
 echo "   Arrêt : Ctrl+C"
 echo ""
 

@@ -9,7 +9,7 @@ Instructions PythonAnywhere :
 Variables d'environnement à définir dans :
 Dashboard → Web → "Environment variables" (ou fichier .env sur le serveur) :
   SECRET_KEY   = <valeur secrète longue et aléatoire>
-  CORS_ORIGINS = https://votre-site.netlify.app
+  CORS_ORIGINS = https://rdvaliahnach.netlify.app
   FLASK_DEBUG  = false
   SQLITE_PATH  = (optionnel — par défaut : rdv.db dans le dossier du projet)
 """
