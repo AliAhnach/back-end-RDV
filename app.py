@@ -56,11 +56,13 @@ def create_app(config_object=Config):
     )
     allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
 
-    # En mode debug local, ajoute automatiquement les origines de développement courantes
+    # En mode debug local ou si le backend doit autoriser explicitement localhost.
     is_debug = str(os.environ.get("FLASK_DEBUG", "false")).lower() == "true"
-    if is_debug:
+    allow_localhost = str(os.environ.get("ALLOW_LOCALHOST_CORS", "false")).lower() == "true"
+    if is_debug or allow_localhost:
         local_dev_origins = [
             "http://localhost:5500", "http://127.0.0.1:5500",
+            "http://localhost:5173", "http://127.0.0.1:5173",
             "http://localhost:8080", "http://127.0.0.1:8080",
             "http://localhost:3000", "http://127.0.0.1:3000",
         ]

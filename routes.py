@@ -138,13 +138,18 @@ def _generate_appointment_receipt_pdf(appointment, admin_name):
         'Refusé': danger,
     }.get(appointment_status, accent_blue)
 
+    # Page border for a polished finish
+    c.setStrokeColor(section_line)
+    c.setLineWidth(1)
+    c.roundRect(margin / 2, margin / 2, width - margin, height - margin, 18, stroke=1, fill=0)
+
     # Subtle watermark
     c.saveState()
-    c.setFillColor(colors.HexColor('#eaf0fb'))
-    c.setFont('Helvetica-Bold', 64)
-    c.translate(width * 0.1, height * 0.55)
+    c.setFillColor(colors.HexColor('#eef4fd'))
+    c.setFont('Helvetica-Bold', 68)
+    c.translate(width * 0.15, height * 0.55)
     c.rotate(45)
-    c.drawCentredString(width * 0.3, 0, 'RDV PLATFORM')
+    c.drawCentredString(width * 0.25, 0, 'RDV')
     c.restoreState()
 
     # Header
@@ -157,18 +162,17 @@ def _generate_appointment_receipt_pdf(appointment, admin_name):
     c.setFillColor(colors.white)
     c.roundRect(margin + 20, height - margin - 20 - logo_size, logo_size, logo_size, 14, stroke=0, fill=1)
     c.setFillColor(header_color)
-    c.setFont('Helvetica-Bold', 20)
+    c.setFont('Helvetica-Bold', 24)
     c.drawCentredString(margin + 20 + logo_size / 2, height - margin - 20 - logo_size / 2 + 2, 'RDV')
 
     # Header text
     c.setFillColor(colors.white)
-    c.setFont('Helvetica-Bold', 24)
-    c.drawString(margin + 20 + logo_size + 16, height - margin - 40, 'Appointment Receipt')
+    c.setFont('Helvetica-Bold', 26)
+    c.drawString(margin + 20 + logo_size + 16, height - margin - 42, 'Appointment Receipt')
     c.setFont('Helvetica', 10)
-    c.drawString(margin + 20 + logo_size + 16, height - margin - 62, 'Official appointment confirmation from RDV Platform.')
+    c.drawString(margin + 20 + logo_size + 16, height - margin - 66, 'Official appointment confirmation from RDV Platform.')
 
     # Receipt metadata box
-    meta_x = width - margin - 190
     meta_y = height - margin - 32
     c.setFont('Helvetica-Bold', 10)
     c.drawRightString(width - margin - 12, meta_y, f'Receipt No. {receipt_number}')
@@ -176,7 +180,7 @@ def _generate_appointment_receipt_pdf(appointment, admin_name):
     c.drawRightString(width - margin - 12, meta_y - 18, f'Generated on {generated_at}')
 
     # Status badge
-    badge_width = 120
+    badge_width = 124
     badge_height = 28
     badge_x = width - margin - badge_width - 12
     badge_y = height - margin - header_height + 22
@@ -187,75 +191,88 @@ def _generate_appointment_receipt_pdf(appointment, admin_name):
     c.drawCentredString(badge_x + badge_width / 2, badge_y + 8, appointment_status.upper())
 
     # Section helper
-    def draw_section(title, y_top, icon_marker):
+    def draw_section(title, y_top):
         section_height = 110
         c.setFillColor(card_bg)
         c.roundRect(margin, y_top - section_height, width - 2 * margin, section_height, 14, stroke=0, fill=1)
         c.setFillColor(text_dark)
         c.setFont('Helvetica-Bold', 12)
-        c.drawString(margin + 18, y_top - 22, title)
-        # icon marker
-        c.setFillColor(accent_blue)
-        c.circle(margin + 12, y_top - 20, 4, fill=1, stroke=0)
+        c.drawString(margin + 20, y_top - 26, title.upper())
         c.setStrokeColor(section_line)
         c.setLineWidth(0.8)
-        c.line(margin + 18, y_top - 28, width - margin - 18, y_top - 28)
+        c.line(margin + 20, y_top - 34, width - margin - 20, y_top - 34)
         return y_top - section_height
 
-    content_top = height - margin - header_height - 20
-    content_top = draw_section('Patient Information', content_top, 'person')
-    c.setFont('Helvetica', 10)
+    content_top = height - margin - header_height - 22
+    content_top = draw_section('Patient Information', content_top)
+    c.setFont('Helvetica', 9)
     c.setFillColor(text_gray)
-    c.drawString(margin + 20, content_top + 76, 'Full Name')
+    c.drawString(margin + 20, content_top + 74, 'Full Name')
     c.setFillColor(text_dark)
-    c.drawString(margin + 20, content_top + 60, user_name)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(margin + 20, content_top + 58, user_name)
     c.setFillColor(text_gray)
-    c.drawString(margin + 20, content_top + 42, 'Email')
+    c.setFont('Helvetica', 9)
+    c.drawString(margin + 20, content_top + 40, 'Email')
     c.setFillColor(text_dark)
-    c.drawString(margin + 20, content_top + 26, user_email)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(margin + 20, content_top + 24, user_email)
 
-    content_top = draw_section('Appointment Information', content_top - 16, 'calendar')
-    c.setFont('Helvetica', 10)
+    content_top = draw_section('Appointment Information', content_top - 16)
+    c.setFont('Helvetica', 9)
     c.setFillColor(text_gray)
     left_x = margin + 20
     right_x = width / 2 + 10
-    c.drawString(left_x, content_top + 76, 'Appointment ID')
+    c.drawString(left_x, content_top + 74, 'Appointment ID')
     c.setFillColor(text_dark)
-    c.drawString(left_x, content_top + 60, str(appointment.id))
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(left_x, content_top + 58, str(appointment.id))
     c.setFillColor(text_gray)
-    c.drawString(left_x, content_top + 42, 'Appointment Type')
+    c.setFont('Helvetica', 9)
+    c.drawString(left_x, content_top + 40, 'Appointment Type')
     c.setFillColor(text_dark)
-    c.drawString(left_x, content_top + 26, appointment_type)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(left_x, content_top + 24, appointment_type)
     c.setFillColor(text_gray)
-    c.drawString(right_x, content_top + 76, 'Date')
+    c.setFont('Helvetica', 9)
+    c.drawString(right_x, content_top + 74, 'Date')
     c.setFillColor(text_dark)
-    c.drawString(right_x, content_top + 60, appointment_date)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(right_x, content_top + 58, appointment_date)
     c.setFillColor(text_gray)
-    c.drawString(right_x, content_top + 42, 'Time')
+    c.setFont('Helvetica', 9)
+    c.drawString(right_x, content_top + 40, 'Time')
     c.setFillColor(text_dark)
-    c.drawString(right_x, content_top + 26, appointment_time)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(right_x, content_top + 24, appointment_time)
 
-    content_top = draw_section('Confirmation Information', content_top - 16, 'check')
-    c.setFont('Helvetica', 10)
+    content_top = draw_section('Confirmation Information', content_top - 16)
+    c.setFont('Helvetica', 9)
     c.setFillColor(text_gray)
-    c.drawString(margin + 20, content_top + 76, 'Confirmation Date')
+    c.drawString(margin + 20, content_top + 74, 'Confirmation Date')
     c.setFillColor(text_dark)
-    c.drawString(margin + 20, content_top + 60, confirmation_date)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(margin + 20, content_top + 58, confirmation_date)
     c.setFillColor(text_gray)
-    c.drawString(margin + 20, content_top + 42, 'Administrator')
+    c.setFont('Helvetica', 9)
+    c.drawString(margin + 20, content_top + 40, 'Administrator')
     c.setFillColor(text_dark)
-    c.drawString(margin + 20, content_top + 26, admin_name)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(margin + 20, content_top + 24, admin_name)
 
-    content_top = draw_section('Receipt Information', content_top - 16, 'receipt')
-    c.setFont('Helvetica', 10)
+    content_top = draw_section('Receipt Information', content_top - 16)
+    c.setFont('Helvetica', 9)
     c.setFillColor(text_gray)
-    c.drawString(margin + 20, content_top + 76, 'Receipt Number')
+    c.drawString(margin + 20, content_top + 74, 'Receipt Number')
     c.setFillColor(text_dark)
-    c.drawString(margin + 20, content_top + 60, receipt_number)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(margin + 20, content_top + 58, receipt_number)
     c.setFillColor(text_gray)
-    c.drawString(margin + 20, content_top + 42, 'Generated On')
+    c.setFont('Helvetica', 9)
+    c.drawString(margin + 20, content_top + 40, 'Generated On')
     c.setFillColor(text_dark)
-    c.drawString(margin + 20, content_top + 26, generated_at)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(margin + 20, content_top + 24, generated_at)
 
     # QR code box
     qr_value = receipt_number
@@ -272,10 +289,10 @@ def _generate_appointment_receipt_pdf(appointment, admin_name):
     c.drawRightString(qr_x + qr_size, qr_y - 8, 'Receipt QR code')
 
     # Footer
-    footer_y = margin + 14
+    footer_y = margin + 20
     c.setStrokeColor(section_line)
     c.setLineWidth(0.8)
-    c.line(margin, footer_y + 42, width - margin, footer_y + 42)
+    c.line(margin, footer_y + 46, width - margin, footer_y + 46)
     c.setFont('Helvetica-Bold', 10)
     c.setFillColor(text_dark)
     c.drawString(margin + 2, footer_y + 28, 'Thank you for using RDV Platform.')
