@@ -34,6 +34,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     if "sqlite" in type(dbapi_connection).__module__:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")  # Améliore la concurrence sur SQLite
         cursor.close()
 
 
@@ -59,7 +60,11 @@ def create_app(config_object=Config):
     # En mode debug local ou si le backend doit autoriser explicitement localhost.
     is_debug = str(os.environ.get("FLASK_DEBUG", "false")).lower() == "true"
     allow_localhost = str(os.environ.get("ALLOW_LOCALHOST_CORS", "false")).lower() == "true"
-    if is_debug or allow_localhost:
+
+    # Détection automatique de l'environnement local (si on n'est pas sur PythonAnywhere)
+    is_local_dev = 'PYTHONANYWHERE_DOMAIN' not in os.environ
+
+    if is_debug or allow_localhost or is_local_dev:
         local_dev_origins = [
             "http://localhost:5500", "http://127.0.0.1:5500",
             "http://localhost:5173", "http://127.0.0.1:5173",

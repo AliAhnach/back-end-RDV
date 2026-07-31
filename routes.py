@@ -5,7 +5,7 @@ from io import BytesIO
 from flask import Blueprint, request, jsonify, session, make_response
 from functools import wraps
 from sqlalchemy import and_, case, func, or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, subqueryload
 from werkzeug.security import generate_password_hash, check_password_hash
 from reportlab.graphics import renderPDF
 from reportlab.graphics.barcode import qr
@@ -340,6 +340,11 @@ def register():
     )
     db.session.add(new_user)
     db.session.commit()
+
+    # Connecte l'utilisateur directement après l'inscription pour éviter un second appel API
+    session.clear()
+    session["user_id"] = new_user.id
+    log.info("[register] User %s created and logged in successfully.", new_user.email)
 
     return jsonify({"success": True, "message": "Compte créé avec succès.", "user": serialize_user(new_user)}), 201
 
@@ -718,16 +723,24 @@ def get_user_messages(user_id):
     if not db.session.get(User, user_id):
         return jsonify({"success": False, "message": "Utilisateur introuvable."}), 404
 
-    conversations = Conversation.query.filter_by(
-        user_id=user_id
-    ).order_by(Conversation.created_at.desc()).all()
+    # OPTIMISATION (N+1) : Utilise subqueryload pour les messages et joinedload pour le sender de chaque message.
+    # Cela évite une requête par message pour récupérer le nom de l'expéditeur.
+    conversations = Conversation.query.options(
+        subqueryload(Conversation.messages).options(
+            joinedload(Message.sender)
+        )
+    ).filter_by(user_id=user_id).order_by(Conversation.created_at.desc()).all()
 
     return jsonify({"success": True, "data": [serialize_conversation(c) for c in conversations]}), 200
 
 
 @api.route("/messages/admin", methods=["GET"])
 def get_admin_messages():
-    conversations = Conversation.query.order_by(Conversation.created_at.desc()).all()
+    # OPTIMISATION (N+1) : Charge en amont l'utilisateur de la conversation et les messages avec leurs expéditeurs.
+    conversations = Conversation.query.options(
+        joinedload(Conversation.user),
+        subqueryload(Conversation.messages).joinedload(Message.sender)
+    ).order_by(Conversation.created_at.desc()).all()
     return jsonify({"success": True, "data": [serialize_conversation(c) for c in conversations]}), 200
 
 
